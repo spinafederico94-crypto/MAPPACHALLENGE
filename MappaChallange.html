@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-g">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ricerca Oculisti</title>
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 15px; background-color: #f4f6f8; }
+        #map { height: 500px; width: 100%; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .search-container { background-color: white; padding: 15px; border-radius: 8px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        input[type="text"] { width: calc(100% - 22px); padding: 10px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px; }
+        button { width: 100%; padding: 12px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; }
+        button:hover { background-color: #0056b3; }
+        #loading { text-align: center; padding: 10px; display: none; }
+        #results-info { text-align: center; padding: 10px; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <div class="search-container">
+        <h2>Trova un Oculista</h2>
+        <input type="text" id="searchInput" placeholder="Inserisci Provincia, Città o Cognome Medico">
+        <button onclick="searchAddress()">Cerca</button>
+    </div>
+
+    <div id="loading">Ricerca in corso...</div>
+    <div id="results-info"></div>
+    <div id="map"></div>
+
+    <script>
+        // SOSTITUISCI QUESTA STRINGA CON L'URL DELLA TUA WEB APP SCRIPT
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwvvBcVfoFSn-0Gl7204sR2NgN1kV4m61AySqORhUDie7cWSOHIPOKQyYJEK7UzpZmM/exec"; 
+        
+        // Inizializzazione della mappa centrata sull'Italia
+        const map = L.map('map').setView([41.902782, 12.496366], 6);
+        let markersGroup = L.layerGroup().addTo(map);
+
+        // Aggiunta del layer della mappa (OpenStreetMap)
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+
+        // Funzione per gestire la pressione del tasto Invio nel campo di ricerca
+        document.getElementById("searchInput").addEventListener("keyup", function(event) {
+            if (event.key === "Enter") {
+                searchAddress();
+            }
+        });
+
+        async function searchAddress() {
+            const searchTerm = document.getElementById('searchInput').value.trim();
+            const loadingDiv = document.getElementById('loading');
+            const resultsInfo = document.getElementById('results-info');
+
+            if (!searchTerm) {
+                alert("Per favore, inserisci un termine di ricerca.");
+                return;
+            }
+
+            loadingDiv.style.display = 'block';
+            resultsInfo.textContent = '';
+            markersGroup.clearLayers(); // Rimuove i vecchi marker
+
+            // Costruiamo l'URL per la ricerca
+            const searchUrl = `${SCRIPT_URL}?provincia=${searchTerm}&citta=${searchTerm}&cognome=${searchTerm}`;
+
+            try {
+                const response = await fetch(searchUrl);
+                const data = await response.json();
+                
+                if (data.length > 0) {
+                    resultsInfo.textContent = `Trovati ${data.length} risultati.`;
+                    data.forEach(item => {
+                        if (item.lat && item.lng) {
+                            const marker = L.marker([item.lat, item.lng]).addTo(markersGroup);
+                            marker.bindPopup(`
+                                <b>${item.cognome}</b><br>
+                                ${item.indirizzo}<br>
+                                ${item.citta} (${item.provincia})
+                            `);
+                        }
+                    });
+
+                    // Centra la mappa sul primo risultato
+                    map.setView([data[0].lat, data[0].lng], 13);
+                } else {
+                    resultsInfo.textContent = "Nessun risultato trovato.";
+                    map.setView([41.902782, 12.496366], 6); // Ricentra sull'Italia
+                }
+
+            } catch (error) {
+                console.error("Errore durante la ricerca:", error);
+                resultsInfo.textContent = "Si è verificato un errore durante la ricerca.";
+            } finally {
+                loadingDiv.style.display = 'none';
+            }
+        }
+    </script>
+
+</body>
+</html>
